@@ -48,7 +48,7 @@ static int sd_cmd(spi_ctrl* spi, uint8_t cmd, uint32_t arg, uint8_t crc)
   unsigned long n;
   uint8_t r;
 
-  spi->csmode.mode = SPI_CSMODE_HOLD;
+  spi->cr.transaction_inhibit = 1;
   sd_dummy(spi);
   spi_txrx(spi, cmd);
   spi_txrx(spi, arg >> 24);
@@ -71,16 +71,24 @@ static int sd_cmd(spi_ctrl* spi, uint8_t cmd, uint32_t arg, uint8_t crc)
 static inline void sd_cmd_end(spi_ctrl* spi)
 {
   sd_dummy(spi);
-  spi->csmode.mode = SPI_CSMODE_AUTO;
+  spi->cr.transaction_inhibit = 0;
 }
 
 static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
 {
+  spi->ssr = 0x01; // spi software reset
   // It is necessary to wait 1ms after SD card power on before it is legal to
   // start sending it commands.
   clkutils_delay_ns(1000000);
 
   // Initialize SPI controller
+  spi->cr.raw_bits = ((spi_ctrl_reg) {
+    .lsb = SPI_ENDIAN_MSB,
+    .transaction_inhibit = 0,
+    .master = 1,
+    .spe = 1,
+  }).raw_bits;
+  /*
   spi->fmt.raw_bits = ((spi_reg_fmt) {
     .proto = SPI_PROTO_S,
     .dir = SPI_DIR_RX,
@@ -89,9 +97,11 @@ static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
   }).raw_bits;
   spi->csdef |= 0x1;
   spi->csid = 0;
+  */
 
-  spi->sckdiv = spi_min_clk_divisor(input_clk_khz, SD_POWER_ON_FREQ_KHZ);
-  spi->csmode.mode = SPI_CSMODE_OFF;
+  // cannot change clock
+  // spi->sckdiv = spi_min_clk_divisor(input_clk_khz, SD_POWER_ON_FREQ_KHZ);
+  spi->cr.transaction_inhibit = 1;
 
   for (int i = 10; i > 0; i--) {
     // Set SD card pin DI high for 74+ cycles
@@ -100,7 +110,7 @@ static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
     sd_dummy(spi);
   }
 
-  spi->csmode.mode = SPI_CSMODE_AUTO;
+  spi->cr.transaction_inhibit = 0;
 }
 
 
@@ -226,7 +236,7 @@ int sd_init(spi_ctrl* spi, unsigned int input_clk_khz, int skip_sd_init_commands
     if (sd_cmd16(spi)) return SD_INIT_ERROR_CMD16;
   }
   // Increase clock frequency after initialization for higher performance.
-  spi->sckdiv = spi_min_clk_divisor(input_clk_khz, SD_POST_INIT_CLK_KHZ);
+  // spi->sckdiv = spi_min_clk_divisor(input_clk_khz, SD_POST_INIT_CLK_KHZ);
   return 0;
 }
 

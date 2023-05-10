@@ -18,13 +18,13 @@ void spi_tx(spi_ctrl* spictrl, uint8_t in)
   do {
     asm volatile (
       "amoor.w %0, %2, %1\n"
-      : "=r" (r), "+A" (spictrl->txdata.raw_bits)
+      : "=r" (r), "+A" (spictrl->tx)
       : "r" (in)
     );
   } while (r < 0);
 #else
-  while ((int32_t) spictrl->txdata.raw_bits < 0);
-  spictrl->txdata.data = in;
+  while (spictrl->sr.tx_empty == 0);
+  spictrl->tx = in;
 #endif
 }
 
@@ -34,9 +34,13 @@ void spi_tx(spi_ctrl* spictrl, uint8_t in)
  */
 uint8_t spi_rx(spi_ctrl* spictrl)
 {
+  while (spictrl->sr.rx_empty == 1);
+  return (uint8_t) spictrl->tx;
+  /*
   int32_t out;
   while ((out = (int32_t) spictrl->rxdata.raw_bits) < 0);
   return (uint8_t) out;
+  **/
 }
 
 
@@ -61,7 +65,7 @@ uint8_t spi_txrx(spi_ctrl* spictrl, uint8_t in)
 int spi_copy(spi_ctrl* spictrl, void* buf, uint32_t addr, uint32_t size)
 {
   uint8_t* buf_bytes = (uint8_t*) buf;
-  spictrl->csmode.mode = SPI_CSMODE_HOLD;
+  spictrl->cr.transaction_inhibit = 1;
 
   spi_txrx(spictrl, MICRON_SPI_FLASH_CMD_READ);
   spi_txrx(spictrl, (addr >> 16) & 0xff);
@@ -73,7 +77,7 @@ int spi_copy(spi_ctrl* spictrl, void* buf, uint32_t addr, uint32_t size)
     buf_bytes++;
   }
 
-  spictrl->csmode.mode = SPI_CSMODE_AUTO;
+  spictrl->cr.transaction_inhibit = 0;
   return 0;
 }
 

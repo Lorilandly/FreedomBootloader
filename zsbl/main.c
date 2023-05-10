@@ -27,7 +27,7 @@ void handle_trap(void)
 void init_uart(unsigned int peripheral_input_khz)
 {
   unsigned long long uart_target_hz = 115200ULL;
-  UART0_REG(UART_REG_DIV) = uart_min_clk_divisor(peripheral_input_khz * 1000ULL, uart_target_hz);
+  // UART0_REG(UART_REG_DIV) = uart_min_clk_divisor(peripheral_input_khz * 1000ULL, uart_target_hz);
 }
 
 /* no-op */
@@ -44,7 +44,7 @@ int main()
     } else {
       peripheral_input_khz = (CORE_CLK_KHZ / 2);
     }
-    init_uart(peripheral_input_khz);
+    // init_uart(peripheral_input_khz);
     ux00boot_load_gpt_partition((void*) CCACHE_SIDEBAND_ADDR, &gpt_guid_sifive_fsbl, peripheral_input_khz);
   }
 

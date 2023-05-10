@@ -5,4 +5,5 @@
 *.dtb
 *.bin
 *.asm
+.vscode
 lib/version.c

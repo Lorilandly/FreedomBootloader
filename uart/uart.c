@@ -19,18 +19,22 @@ void uart_putc(void* uartctrl, char c) {
     );
   } while (r < 0);
 #else
-  while ((int) _REG32(uartctrl, UART_REG_TXFIFO) < 0);
+  // while ((int) _REG32(uartctrl, UART_REG_TXFIFO) < 0);
+  while ((int32_t) _REG32(uartctrl, UART_REG_STAT) & UART_TX_FULL);
   _REG32(uartctrl, UART_REG_TXFIFO) = c;
 #endif
 }
 
 
 char uart_getc(void* uartctrl){
+  /*
   int32_t val = -1;
   while (val < 0){
     val = (int32_t) _REG32(uartctrl, UART_REG_RXFIFO);
   }
-  return val & 0xFF;
+  */
+  while ((int32_t) _REG32(uartctrl, UART_REG_STAT) & UART_RX_EMPTY);
+  return _REG32(uartctrl, UART_REG_RXFIFO) & 0xFF;
 }
 
 

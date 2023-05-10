@@ -103,13 +103,13 @@ void update_peripheral_clock_dividers(unsigned int peripheral_input_khz)
   unsigned int spi_target_khz = 50000;
   unsigned int spi_div = spi_min_clk_divisor(peripheral_input_khz, spi_target_khz);
   for (size_t i = 0; i < sizeof(spi_devices) / sizeof(spi_devices[0]); i++) {
-    spi_devices[i]->sckdiv = spi_div;
+    // spi_devices[i]->sckdiv = spi_div;
   }
 
   unsigned int uart_target_hz = 115200ULL;
   unsigned int uart_div = uart_min_clk_divisor(peripheral_input_khz * 1000ULL, uart_target_hz);
   for (size_t i = 0; i < sizeof(uart_devices) / sizeof(uart_devices[0]); i++) {
-    _REG32(uart_devices[i], UART_REG_DIV) = uart_div;
+    // _REG32(uart_devices[i], UART_REG_DIV) = uart_div;
   }
 }
 
@@ -140,7 +140,7 @@ int main(int id, unsigned long dtb)
   } else {
     peripheral_input_khz = initial_core_clk_khz / 2;
   }
-  UART0_REG(UART_REG_DIV) = uart_min_clk_divisor(peripheral_input_khz * 1000ULL, uart_target_hz);
+  // UART0_REG(UART_REG_DIV) = uart_min_clk_divisor(peripheral_input_khz * 1000ULL, uart_target_hz);
 
   // Check Reset Values (lock don't care)
   uint32_t pll_default =
@@ -312,7 +312,7 @@ int main(int id, unsigned long dtb)
 
   // Post the serial number and build info
   extern const char * gitid;
-  UART0_REG(UART_REG_TXCTRL) = UART_TXEN;
+  UART0_REG(UART_REG_CTRL) = UART_RST_TX;
   
   puts("\r\nSiFive FSBL:       ");
   puts(date);

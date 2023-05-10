@@ -6,31 +6,6 @@
 #ifndef _SIFIVE_SPI_H
 #define _SIFIVE_SPI_H
 
-/* Register offsets */
-
-#define SPI_REG_SCKDIV          0x00
-#define SPI_REG_SCKMODE         0x04
-#define SPI_REG_CSID            0x10
-#define SPI_REG_CSDEF           0x14
-#define SPI_REG_CSMODE          0x18
-
-#define SPI_REG_DCSSCK          0x28
-#define SPI_REG_DSCKCS          0x2a
-#define SPI_REG_DINTERCS        0x2c
-#define SPI_REG_DINTERXFR       0x2e
-
-#define SPI_REG_FMT             0x40
-#define SPI_REG_TXFIFO          0x48
-#define SPI_REG_RXFIFO          0x4c
-#define SPI_REG_TXCTRL          0x50
-#define SPI_REG_RXCTRL          0x54
-
-#define SPI_REG_FCTRL           0x60
-#define SPI_REG_FFMT            0x64
-
-#define SPI_REG_IE              0x70
-#define SPI_REG_IP              0x74
-
 /* Fields */
 
 #define SPI_SCK_PHA             0x1

@@ -176,6 +176,47 @@ typedef spi_reg_ie spi_reg_ip;
 _ASSERT_SIZEOF(spi_reg_ie, 4);
 _ASSERT_SIZEOF(spi_reg_ip, 4);
 
+typedef union
+{
+  struct
+  {
+    uint32_t reserved : 22;
+    uint32_t lsb : 1;
+    uint32_t transaction_inhibit : 1;
+    uint32_t manual_slave_select : 1;
+    uint32_t rx_rst : 1;
+    uint32_t tx_rst : 1;
+    uint32_t cpha : 1;
+    uint32_t cpol : 1;
+    uint32_t master : 1;
+    uint32_t spe : 1;
+    uint32_t loop : 1;
+  };
+  uint32_t raw_bits;
+} spi_ctrl_reg;
+_ASSERT_SIZEOF(spi_ctrl_reg, 4);
+
+typedef union
+{
+  struct
+  {
+    uint32_t reserved : 21;
+    uint32_t command_err : 1;
+    uint32_t loopback_err : 1;
+    uint32_t lsb_err : 1;
+    uint32_t slave_mode_err : 1;
+    uint32_t cpol_cpha_err : 1;
+    uint32_t slave_mode_select : 1;
+    uint32_t modf : 1;
+    uint32_t tx_full : 1;
+    uint32_t tx_empty : 1;
+    uint32_t rx_full : 1;
+    uint32_t rx_empty : 1;
+  };
+  uint32_t raw_bits;
+} spi_stat_reg;
+_ASSERT_SIZEOF(spi_stat_reg, 4);
+
 #undef _ASSERT_SIZEOF
 
 
@@ -184,6 +225,42 @@ _ASSERT_SIZEOF(spi_reg_ip, 4);
  *
  * All functions take a pointer to a SPI device's control registers.
  */
+typedef volatile struct
+{
+  uint32_t reserved00;
+  uint32_t reserved04;
+  uint32_t reserved08;
+  uint32_t reserved0c;
+  uint32_t reserved10;
+  uint32_t reserved14;
+  uint32_t reserved18;
+  uint32_t dgier;       // 0x1c;
+  uint32_t ipisr;       // 0x20;
+  uint32_t reserved24;
+  uint32_t ipier;       // 0x28;
+  uint32_t reserved2c;
+  uint32_t reserved30;
+  uint32_t reserved34;
+  uint32_t reserved38;
+  uint32_t reserved3c;
+  uint32_t srr;         // 0x40
+  uint32_t reserved44;
+  uint32_t reserved48;
+  uint32_t reserved4c;
+  uint32_t reserved50;
+  uint32_t reserved54;
+  uint32_t reserved58;
+  uint32_t reserved5c;
+  spi_ctrl_reg cr;      // 0x60
+  spi_stat_reg sr;      // 0x64;
+  uint32_t tx;          // 0x68;
+  uint32_t rx;          // 0x6c;
+  uint32_t ssr;         // 0x70;
+  uint32_t tor;         // 0x74;
+  uint32_t ror;         // 0x78;
+  uint32_t reserved7c;
+} spi_ctrl;
+/**
 typedef volatile struct
 {
   uint32_t sckdiv;
@@ -224,6 +301,7 @@ typedef volatile struct
   spi_reg_ie ie;
   spi_reg_ip ip;
 } spi_ctrl;
+*/
 
 
 void spi_tx(spi_ctrl* spictrl, uint8_t in);

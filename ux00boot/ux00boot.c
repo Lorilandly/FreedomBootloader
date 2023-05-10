@@ -313,7 +313,7 @@ static int load_sd_gpt_partition(spi_ctrl* spictrl, void* dst, const gpt_guid* p
 
 /**
  * Set up SPI for direct, non-memory-mapped access.
- */
+ *
 static inline int initialize_spi_flash_direct(spi_ctrl* spictrl, unsigned int spi_clk_input_khz)
 {
   // Max desired SPI clock is 10MHz
@@ -387,7 +387,7 @@ static gpt_partition_range find_mmap_gpt_partition(const void* gpt_base, const g
 
 /**
  * Load GPT partition from memory-mapped GPT image.
- */
+ *
 static int load_mmap_gpt_partition(const void* gpt_base, void* payload_dest, const gpt_guid* partition_type_guid)
 {
   gpt_partition_range range = find_mmap_gpt_partition(gpt_base, partition_type_guid);
@@ -435,7 +435,7 @@ static gpt_partition_range find_spiflash_gpt_partition(
 
 /**
  * Load GPT partition from SPI flash.
- */
+ *
 static int load_spiflash_gpt_partition(spi_ctrl* spictrl, void* dst, const gpt_guid* partition_type_guid)
 {
   uint8_t gpt_buf[GPT_BLOCK_SIZE];
@@ -469,13 +469,14 @@ static int load_spiflash_gpt_partition(spi_ctrl* spictrl, void* dst, const gpt_g
   if (error) return ERROR_CODE_SPI_COPY_FAILED;
   return 0;
 }
+*/
 
 
 void ux00boot_fail(long code, int trap)
 {
   if (read_csr(mhartid) == NONSMP_HART) {
     // Print error code to UART
-    UART0_REG(UART_REG_TXCTRL) = UART_TXEN;
+    UART0_REG(UART_REG_CTRL) = UART_RST_TX;
 
     // Error codes are formatted as follows:
     // [63:60]    [59:56]  [55:0]
@@ -530,6 +531,14 @@ void ux00boot_load_gpt_partition(void* dst, const gpt_guid* partition_type_guid,
   int spi_device = get_boot_spi_device(mode_select);
   ux00boot_routine boot_routine = get_boot_routine(mode_select);
 
+  // bypass boot device select
+  // spimem does not need to be set if using sd card
+  spictrl = (spi_ctrl*) SPI_CTRL_ADDR;
+  unsigned int error = 0;
+  int skip_sd_init_commands = (boot_routine == UX00BOOT_ROUTINE_SDCARD) ? 0 : 1;
+  error = initialize_sd(spictrl, peripheral_input_khz, skip_sd_init_commands);
+  if (!error) error = load_sd_gpt_partition(spictrl, dst, partition_type_guid);
+  /*
   switch (spi_device)
   {
     case 0:
@@ -551,7 +560,6 @@ void ux00boot_load_gpt_partition(void* dst, const gpt_guid* partition_type_guid,
       break;
   }
 
-  unsigned int error = 0;
 
   switch (boot_routine)
   {
@@ -580,13 +588,14 @@ void ux00boot_load_gpt_partition(void* dst, const gpt_guid* partition_type_guid,
       /**
        * Control transfer back to debugger.
        * Debugger can load next stage to PAYLOAD_DEST.
-       */
+       *
       asm volatile ("ebreak");
       break;
     default:
       error = ERROR_CODE_UNHANDLED_BOOT_ROUTINE;
       break;
   }
+  */
 
   if (error) {
     ux00boot_fail(error, 0);
