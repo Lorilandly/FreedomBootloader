@@ -5,10 +5,25 @@
 
 #include <sifive/bits.h>
 #include <sifive/smp.h>
+#include <sifive/platform.h>
 
   .section .text.init
+  .option norvc
   .globl _prog_start
 _prog_start:
+  smp_pause(s1, s2)
+  li sp, (MEMORY_MEM_ADDR + 0xffff000)
+  call main
+  smp_resume(s1, s2)
+  csrr a0, mhartid // hartid for next level bootloader
+  la a1, _dtb // dtb address for next level bootloader
+  li s1, MEMORY_MEM_ADDR
+  jr s1
+
+  .section .dtb
+  .align 3
+
+/*
   .globl _start
 _start:
   la t0, trap_entry
@@ -85,7 +100,8 @@ trap_entry:
   call handle_trap
 
   .section .rodata
+*/
 _dtb:
-  .incbin "zsbl/ux00_zsbl.dtb"
+  //.incbin "zsbl/ux00_zsbl.dtb"
   //.incbin DEVICE_TREE
 

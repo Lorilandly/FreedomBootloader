@@ -8,7 +8,7 @@ CC=${CROSSCOMPILE}gcc
 LD=${CROSSCOMPILE}ld
 OBJCOPY=${CROSSCOMPILE}objcopy
 OBJDUMP=${CROSSCOMPILE}objdump
-CFLAGS=-I. -O2 -ggdb -march=rv64imafdc -mabi=lp64d -Wall -mcmodel=medany -mexplicit-relocs -fno-tree-loop-distribute-patterns
+CFLAGS=-I. -O2 -ggdb -march=rv64g -mabi=lp64 -Wall -mcmodel=medany -mexplicit-relocs -fno-tree-loop-distribute-patterns
 CCASFLAGS=-I. -mcmodel=medany -mexplicit-relocs
 LDFLAGS=-nostdlib -nostartfiles
 
@@ -77,8 +77,18 @@ fsbl/dtb.o: fsbl/ux00_fsbl.dtb
 
 zsbl/start.o: zsbl/ux00_zsbl.dtb
 
+.PHONY: gen_bram
+gen_bram: zsbl.hex
+		./bram_mem_15_0 $^ > ./conform_15_0.mem
+		./bram_mem_31_16 $^ > ./conform_31_16.mem
+		./bram_mem_47_32 $^ > ./conform_47_32.mem
+		./bram_mem_63_48 $^ > ./conform_63_48.mem
+
 %.bin: %.elf
 	$(OBJCOPY) -S -R .comment -R .note.gnu.build-id -O binary $^ $@
+	
+%.hex: %.bin
+	hexdump -v -e '/4 "%08X" "\n"' $^ > $@
 
 %.asm: %.elf
 	$(OBJDUMP) -S $^ > $@

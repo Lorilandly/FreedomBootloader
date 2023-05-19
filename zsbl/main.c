@@ -45,6 +45,12 @@ int main()
       peripheral_input_khz = (CORE_CLK_KHZ / 2);
     }
     // init_uart(peripheral_input_khz);
+    // change CCACHE_SIDEBAND_ADDR to 0x8000_0000
+    *(char volatile *)0x40600000 = 'h';
+    *(char volatile *)0x40600000 = 'e';
+    *(char volatile *)0x40600000 = 'l';
+    *(char volatile *)0x40600000 = 'l';
+    *(char volatile *)0x40600000 = 'o';
     ux00boot_load_gpt_partition((void*) CCACHE_SIDEBAND_ADDR, &gpt_guid_sifive_fsbl, peripheral_input_khz);
   }
 

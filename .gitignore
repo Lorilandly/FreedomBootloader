@@ -5,5 +5,7 @@
 *.dtb
 *.bin
 *.asm
+*.hex
+*.mem
 .vscode
 lib/version.c
