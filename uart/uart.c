@@ -3,26 +3,16 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /* See the file LICENSE for further information */
 
-#include <stdatomic.h>
 #include <sifive/platform.h>
 #include "uart.h"
 
 
 void uart_putc(void* uartctrl, char c) {
-#if __riscv_atomic
-  int32_t r;
-  do {
-    asm volatile (
-      "amoor.w %0, %2, %1\n"
-      : "=r" (r), "+A" (_REG32(uartctrl, UART_REG_TXFIFO))
-      : "r" (c)
-    );
-  } while (r < 0);
-#else
-  // while ((int) _REG32(uartctrl, UART_REG_TXFIFO) < 0);
+  // little endian? optimize later
   while ((int32_t) _REG32(uartctrl, UART_REG_STAT) & UART_TX_FULL);
   _REG32(uartctrl, UART_REG_TXFIFO) = c;
-#endif
+  // _REG32(uartctrl, UART_REG_CTRL) |= 1;
+  //uart_put_hex(uartctrl, (int8_t) _REG32(uartctrl, UART_REG_STAT) + '0');
 }
 
 
@@ -33,7 +23,7 @@ char uart_getc(void* uartctrl){
     val = (int32_t) _REG32(uartctrl, UART_REG_RXFIFO);
   }
   */
-  while ((int32_t) _REG32(uartctrl, UART_REG_STAT) & UART_RX_EMPTY);
+  //while ((int32_t) _REG32(uartctrl, UART_REG_STAT) & UART_RX_EMPTY);
   return _REG32(uartctrl, UART_REG_RXFIFO) & 0xFF;
 }
 

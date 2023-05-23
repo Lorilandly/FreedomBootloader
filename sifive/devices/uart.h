@@ -7,8 +7,8 @@
 #define _SIFIVE_UART_H
 
 /* Register offsets */
-#define UART_REG_TXFIFO         0x00
-#define UART_REG_RXFIFO         0x04
+#define UART_REG_RXFIFO         0x00
+#define UART_REG_TXFIFO         0x04
 #define UART_REG_STAT           0x08
 #define UART_REG_CTRL           0x0c
 #define UART_REG_IE             0x10
@@ -16,14 +16,14 @@
 #define UART_REG_DIV            0x18
 
 /* STAT register */
-#define UART_PARITY_ERR         0b10000000
-#define UART_FRAME_ERR          0b01000000
-#define UART_OVERRUN_ERR        0b00100000
-#define UART_INTR_EN            0b00010000
-#define UART_TX_FULL            0b00001000
-#define UART_TX_EMPTY           0b00000100
-#define UART_RX_FULL            0b00000010
-#define UART_RX_EMPTY           0b00000001
+#define UART_PARITY_ERR         (1 << 31)
+#define UART_FRAME_ERR          (1 << 30)
+#define UART_OVERRUN_ERR        (1 << 29)
+#define UART_INTR_EN            (1 << 28)
+#define UART_TX_FULL            (1 << 27)
+#define UART_TX_EMPTY           (1 << 26)
+#define UART_RX_FULL            (1 << 25)
+#define UART_RX_VALID           (1 << 24) // don't use this, may cause UB
 
 /* CTRL register */
 #define UART_EN_INTR            0b10000
