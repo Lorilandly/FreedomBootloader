@@ -180,17 +180,17 @@ typedef union
 {
   struct
   {
-    uint32_t reserved : 22;
-    uint32_t lsb : 1;
-    uint32_t transaction_inhibit : 1;
-    uint32_t manual_slave_select : 1;
-    uint32_t rx_rst : 1;
-    uint32_t tx_rst : 1;
-    uint32_t cpha : 1;
-    uint32_t cpol : 1;
-    uint32_t master : 1;
-    uint32_t spe : 1;
     uint32_t loop : 1;
+    uint32_t spe : 1;
+    uint32_t master : 1;
+    uint32_t cpol : 1;
+    uint32_t cpha : 1;
+    uint32_t tx_rst : 1;
+    uint32_t rx_rst : 1;
+    uint32_t manual_slave_select : 1;
+    uint32_t transaction_inhibit : 1;
+    uint32_t lsb : 1;
+    uint32_t reserved : 22;
   };
   uint32_t raw_bits;
 } spi_ctrl_reg;
@@ -200,18 +200,18 @@ typedef union
 {
   struct
   {
-    uint32_t reserved : 21;
-    uint32_t command_err : 1;
-    uint32_t loopback_err : 1;
-    uint32_t lsb_err : 1;
-    uint32_t slave_mode_err : 1;
-    uint32_t cpol_cpha_err : 1;
-    uint32_t slave_mode_select : 1;
-    uint32_t modf : 1;
-    uint32_t tx_full : 1;
-    uint32_t tx_empty : 1;
-    uint32_t rx_full : 1;
     uint32_t rx_empty : 1;
+    uint32_t rx_full : 1;
+    uint32_t tx_empty : 1;
+    uint32_t tx_full : 1;
+    uint32_t modf : 1;
+    uint32_t slave_mode_select : 1;
+    uint32_t cpol_cpha_err : 1;
+    uint32_t slave_mode_err : 1;
+    uint32_t lsb_err : 1;
+    uint32_t loopback_err : 1;
+    uint32_t command_err : 1;
+    uint32_t reserved : 21;
   };
   uint32_t raw_bits;
 } spi_stat_reg;
@@ -252,12 +252,12 @@ typedef volatile struct
   uint32_t reserved58;
   uint32_t reserved5c;
   spi_ctrl_reg cr;      // 0x60
-  spi_stat_reg sr;      // 0x64;
-  uint32_t tx;          // 0x68;
-  uint32_t rx;          // 0x6c;
-  uint32_t ssr;         // 0x70;
-  uint32_t tor;         // 0x74;
-  uint32_t ror;         // 0x78;
+  spi_stat_reg sr;      // 0x64
+  uint32_t tx;          // 0x68
+  uint32_t rx;          // 0x6c
+  uint32_t ssr;         // 0x70
+  uint32_t tor;         // 0x74
+  uint32_t ror;         // 0x78
   uint32_t reserved7c;
 } spi_ctrl;
 /**

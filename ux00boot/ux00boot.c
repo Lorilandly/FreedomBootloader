@@ -15,29 +15,6 @@
 #include <sd/sd.h>
 #include "ux00boot.h"
 
-#define MICRON_SPI_FLASH_CMD_RESET_ENABLE        0x66
-#define MICRON_SPI_FLASH_CMD_MEMORY_RESET        0x99
-#define MICRON_SPI_FLASH_CMD_READ                0x03
-#define MICRON_SPI_FLASH_CMD_QUAD_FAST_READ      0x6b
-
-								// top of board
-// Modes 0-4 are handled in the ModeSelect Gate ROM		//       0123
-#define MODESELECT_LOOP 0					// 0000  ----
-#define MODESELECT_SPI0_FLASH_XIP 1				// 0001  _---
-#define MODESELECT_SPI1_FLASH_XIP 2				// 0010  -_--
-#define MODESELECT_CHIPLINK_TL_UH_XIP 3				// 0011  __--
-#define MODESELECT_CHIPLINK_TL_C_XIP 4				// 0100  --_-
-#define MODESELECT_ZSBL_SPI0_MMAP_FSBL_SPI0_MMAP 5		// 0101  _-_-
-#define MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI0_MMAP_QUAD 6	// 0110  -__-
-#define MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI1_MMAP_QUAD 7	// 0111  ___-
-#define MODESELECT_ZSBL_SPI1_SDCARD_FSBL_SPI1_SDCARD 8		// 1000  ---_
-#define MODESELECT_ZSBL_SPI2_FLASH_FSBL_SPI2_FLASH 9		// 1001  _--_
-#define MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI1_SDCARD 10	// 1010  -_-_
-#define MODESELECT_ZSBL_SPI2_SDCARD_FSBL_SPI2_SDCARD 11		// 1011  __-_
-#define MODESELECT_ZSBL_SPI1_FLASH_FSBL_SPI2_SDCARD 12		// 1100  --__
-#define MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI2_SDCARD 13	// 1101  -_--
-#define MODESELECT_ZSBL_SPI0_FLASH_FSBL_SPI2_SDCARD 14		// 1110  -___
-#define MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI2_SDCARD 15	// 1111  ____
 
 #define GPT_BLOCK_SIZE 512
 
@@ -62,151 +39,10 @@
 #define ERROR_CODE_SD_CARD_CMD18_CRC 0xb
 #define ERROR_CODE_SD_CARD_UNEXPECTED_ERROR 0xc
 
+// error LED not implemented
 // We are assuming that an error LED is connected to the GPIO pin
 #define UX00BOOT_ERROR_LED_GPIO_PIN 15
 #define UX00BOOT_ERROR_LED_GPIO_MASK (1 << 15)
-
-//==============================================================================
-// Mode Select helpers
-//==============================================================================
-
-typedef enum {
-  UX00BOOT_ROUTINE_FLASH,  // Use SPI commands to read from flash one byte at a time
-  UX00BOOT_ROUTINE_MMAP,  // Read from memory-mapped SPI region
-  UX00BOOT_ROUTINE_MMAP_QUAD,  // Enable quad SPI mode and then read from memory-mapped SPI region
-  UX00BOOT_ROUTINE_SDCARD,  // Initialize SD card controller and then use SPI commands to read one byte at a time
-  UX00BOOT_ROUTINE_SDCARD_NO_INIT,  // Use SD SPI commands to read one byte at a time without initialization
-  UX00BOOT_ROUTINE_LOOP,  // Prepare all stuff of next stage by debugger
-} ux00boot_routine;
-
-
-static int get_boot_spi_device(uint32_t mode_select)
-{
-  int spi_device;
-
-#ifndef UX00BOOT_BOOT_STAGE
-#error "Must define UX00BOOT_BOOT_STAGE"
-#endif
-
-#if UX00BOOT_BOOT_STAGE == 0
-  switch (mode_select)
-  {
-    case MODESELECT_ZSBL_SPI0_MMAP_FSBL_SPI0_MMAP:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI0_MMAP_QUAD:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI1_SDCARD:
-    case MODESELECT_ZSBL_SPI0_FLASH_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI2_SDCARD:
-      spi_device = 0;
-      break;
-    case MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI1_MMAP_QUAD:
-    case MODESELECT_ZSBL_SPI1_SDCARD_FSBL_SPI1_SDCARD:
-    case MODESELECT_ZSBL_SPI1_FLASH_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI2_SDCARD:
-      spi_device = 1;
-      break;
-    case MODESELECT_ZSBL_SPI2_FLASH_FSBL_SPI2_FLASH:
-    case MODESELECT_ZSBL_SPI2_SDCARD_FSBL_SPI2_SDCARD:
-      spi_device = 2;
-      break;
-    default:
-      spi_device = -1;
-      break;
-  }
-#elif UX00BOOT_BOOT_STAGE == 1
-  switch (mode_select)
-  {
-    case MODESELECT_ZSBL_SPI0_MMAP_FSBL_SPI0_MMAP:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI0_MMAP_QUAD:
-      spi_device = 0;
-      break;
-    case MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI1_MMAP_QUAD:
-    case MODESELECT_ZSBL_SPI1_SDCARD_FSBL_SPI1_SDCARD:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI1_SDCARD:
-      spi_device = 1;
-      break;
-    case MODESELECT_ZSBL_SPI2_FLASH_FSBL_SPI2_FLASH:
-    case MODESELECT_ZSBL_SPI2_SDCARD_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI1_FLASH_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI0_FLASH_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI2_SDCARD:
-      spi_device = 2;
-      break;
-    case MODESELECT_LOOP:
-      spi_device = 3;
-      break;
-    default:
-      spi_device = -1;
-      break;
-  }
-#else
-#error "Must define UX00BOOT_BOOT_STAGE"
-#endif
-  return spi_device;
-}
-
-
-static ux00boot_routine get_boot_routine(uint32_t mode_select)
-{
-  ux00boot_routine boot_routine = 0;
-
-#if UX00BOOT_BOOT_STAGE == 0
-  switch (mode_select)
-  {
-    case MODESELECT_ZSBL_SPI2_FLASH_FSBL_SPI2_FLASH:
-    case MODESELECT_ZSBL_SPI1_FLASH_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI0_FLASH_FSBL_SPI2_SDCARD:
-      boot_routine = UX00BOOT_ROUTINE_FLASH;
-      break;
-    case MODESELECT_ZSBL_SPI0_MMAP_FSBL_SPI0_MMAP:
-      boot_routine = UX00BOOT_ROUTINE_MMAP;
-      break;
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI0_MMAP_QUAD:
-    case MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI1_MMAP_QUAD:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI1_SDCARD:
-    case MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI2_SDCARD:
-      boot_routine = UX00BOOT_ROUTINE_MMAP_QUAD;
-      break;
-    case MODESELECT_ZSBL_SPI1_SDCARD_FSBL_SPI1_SDCARD:
-    case MODESELECT_ZSBL_SPI2_SDCARD_FSBL_SPI2_SDCARD:
-      boot_routine = UX00BOOT_ROUTINE_SDCARD;
-      break;
-  }
-#elif UX00BOOT_BOOT_STAGE == 1
-  switch (mode_select)
-  {
-    case MODESELECT_ZSBL_SPI2_FLASH_FSBL_SPI2_FLASH:
-      boot_routine = UX00BOOT_ROUTINE_FLASH;
-      break;
-    case MODESELECT_ZSBL_SPI0_MMAP_FSBL_SPI0_MMAP:
-      boot_routine = UX00BOOT_ROUTINE_MMAP;
-      break;
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI0_MMAP_QUAD:
-    case MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI1_MMAP_QUAD:
-      boot_routine = UX00BOOT_ROUTINE_MMAP_QUAD;
-      break;
-    case MODESELECT_ZSBL_SPI1_SDCARD_FSBL_SPI1_SDCARD:
-    case MODESELECT_ZSBL_SPI2_SDCARD_FSBL_SPI2_SDCARD:
-      // Do not reinitialize SD card if already done by ZSBL
-      boot_routine = UX00BOOT_ROUTINE_SDCARD_NO_INIT;
-      break;
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI1_SDCARD:
-    case MODESELECT_ZSBL_SPI1_FLASH_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI1_MMAP_QUAD_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI0_FLASH_FSBL_SPI2_SDCARD:
-    case MODESELECT_ZSBL_SPI0_MMAP_QUAD_FSBL_SPI2_SDCARD:
-      boot_routine = UX00BOOT_ROUTINE_SDCARD;
-      break;
-    case MODESELECT_LOOP:
-      boot_routine = UX00BOOT_ROUTINE_LOOP;
-      break;
-  }
-#else
-#error "Must define UX00BOOT_BOOT_STAGE"
-#endif
-  return boot_routine;
-}
 
 
 //==============================================================================
@@ -217,9 +53,9 @@ static ux00boot_routine get_boot_routine(uint32_t mode_select)
 // SD Card
 //------------------------------------------------------------------------------
 
-static int initialize_sd(spi_ctrl* spictrl, unsigned int peripheral_input_khz, int skip_sd_init_commands)
+static int initialize_sd(spi_ctrl* spictrl)
 {
-  int error = sd_init(spictrl, peripheral_input_khz, skip_sd_init_commands);
+  int error = sd_init(spictrl);
   if (error) {
     switch (error) {
       case SD_INIT_ERROR_CMD0: return ERROR_CODE_SD_CARD_CMD0;
@@ -230,6 +66,7 @@ static int initialize_sd(spi_ctrl* spictrl, unsigned int peripheral_input_khz, i
       default: return ERROR_CODE_SD_CARD_UNEXPECTED_ERROR;
     }
   }
+  uart_puts((void*)UART0_CTRL_ADDR, "SD initialization complete!\n\r");
   return 0;
 }
 
@@ -303,6 +140,7 @@ static int load_sd_gpt_partition(spi_ctrl* spictrl, void* dst, const gpt_guid* p
     part_range.last_lba + 1 - part_range.first_lba
   );
   if (error) return decode_sd_copy_error(error);
+  uart_puts((void*)UART0_CTRL_ADDR, "SD Load Partition Complete!\n\r");
   return 0;
 }
 
@@ -521,81 +359,13 @@ void ux00boot_fail(long code, int trap)
  * Read from mode select device to determine which bulk storage medium to read
  * GPT image from, and properly initialize the bulk storage based on type.
  */
-void ux00boot_load_gpt_partition(void* dst, const gpt_guid* partition_type_guid, unsigned int peripheral_input_khz)
+void ux00boot_load_gpt_partition(void* dst, const gpt_guid* partition_type_guid)
 {
-  uint32_t mode_select = *((volatile uint32_t*) MODESELECT_MEM_ADDR);
 
-  spi_ctrl* spictrl = NULL;
-  void* spimem = NULL;
-
-  int spi_device = get_boot_spi_device(mode_select);
-  ux00boot_routine boot_routine = get_boot_routine(mode_select);
-
-  // bypass boot device select
-  // spimem does not need to be set if using sd card
-  spictrl = (spi_ctrl*) SPI_CTRL_ADDR;
+  spi_ctrl* spictrl = (spi_ctrl*) SPI_CTRL_ADDR;
   unsigned int error = 0;
-  int skip_sd_init_commands = (boot_routine == UX00BOOT_ROUTINE_SDCARD) ? 0 : 1;
-  error = initialize_sd(spictrl, peripheral_input_khz, skip_sd_init_commands);
+  error = initialize_sd(spictrl);
   if (!error) error = load_sd_gpt_partition(spictrl, dst, partition_type_guid);
-  /*
-  switch (spi_device)
-  {
-    case 0:
-      spictrl = (spi_ctrl*) SPI0_CTRL_ADDR;
-      spimem = (void*) SPI0_MEM_ADDR;
-      break;
-    case 1:
-      spictrl = (spi_ctrl*) SPI1_CTRL_ADDR;
-      spimem = (void*) SPI1_MEM_ADDR;
-      break;
-    case 2:
-      spictrl = (spi_ctrl*) SPI2_CTRL_ADDR;
-      break;
-    case 3:
-      // MODESELECT_LOOP. Don't try to find spi device in debug mode.
-      break;
-    default:
-      ux00boot_fail(ERROR_CODE_UNHANDLED_SPI_DEVICE, 0);
-      break;
-  }
-
-
-  switch (boot_routine)
-  {
-    case UX00BOOT_ROUTINE_FLASH:
-      error = initialize_spi_flash_direct(spictrl, peripheral_input_khz);
-      if (!error) error = load_spiflash_gpt_partition(spictrl, dst, partition_type_guid);
-      break;
-    case UX00BOOT_ROUTINE_MMAP:
-      error = initialize_spi_flash_mmap_single(spictrl, peripheral_input_khz);
-      if (!error) error = load_mmap_gpt_partition(spimem, dst, partition_type_guid);
-      break;
-    case UX00BOOT_ROUTINE_MMAP_QUAD:
-      error = initialize_spi_flash_mmap_quad(spictrl, peripheral_input_khz);
-      if (!error) error = load_mmap_gpt_partition(spimem, dst, partition_type_guid);
-      break;
-    case UX00BOOT_ROUTINE_SDCARD:
-    case UX00BOOT_ROUTINE_SDCARD_NO_INIT:
-      {
-        int skip_sd_init_commands = (boot_routine == UX00BOOT_ROUTINE_SDCARD) ? 0 : 1;
-        error = initialize_sd(spictrl, peripheral_input_khz, skip_sd_init_commands);
-        if (!error) error = load_sd_gpt_partition(spictrl, dst, partition_type_guid);
-      }
-      break;
-    case UX00BOOT_ROUTINE_LOOP:
-      error = 0;
-      /**
-       * Control transfer back to debugger.
-       * Debugger can load next stage to PAYLOAD_DEST.
-       *
-      asm volatile ("ebreak");
-      break;
-    default:
-      error = ERROR_CODE_UNHANDLED_BOOT_ROUTINE;
-      break;
-  }
-  */
 
   if (error) {
     ux00boot_fail(error, 0);

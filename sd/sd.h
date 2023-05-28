@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-int sd_init(spi_ctrl* spi, unsigned int input_clk_hz, int skip_sd_init_commands);
+int sd_init(spi_ctrl* spi);
 int sd_copy(spi_ctrl* spi, void* dst, uint32_t src_lba, size_t size);
 
 #endif /* !__ASSEMBLER__ */

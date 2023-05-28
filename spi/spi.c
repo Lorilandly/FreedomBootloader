@@ -13,19 +13,8 @@
  */
 void spi_tx(spi_ctrl* spictrl, uint8_t in)
 {
-#if __riscv_atomic
-  int32_t r;
-  do {
-    asm volatile (
-      "amoor.w %0, %2, %1\n"
-      : "=r" (r), "+A" (spictrl->tx)
-      : "r" (in)
-    );
-  } while (r < 0);
-#else
-  while (spictrl->sr.tx_empty == 0);
+  while (spictrl->tor >> 24 >= 0x0f); // make sure tx does not overflow the FIFO buffer
   spictrl->tx = in;
-#endif
 }
 
 
@@ -34,13 +23,8 @@ void spi_tx(spi_ctrl* spictrl, uint8_t in)
  */
 uint8_t spi_rx(spi_ctrl* spictrl)
 {
-  while (spictrl->sr.rx_empty == 1);
-  return (uint8_t) spictrl->tx;
-  /*
-  int32_t out;
-  while ((out = (int32_t) spictrl->rxdata.raw_bits) < 0);
-  return (uint8_t) out;
-  **/
+  while (!spictrl->ror); // do not read when buffer is empty
+  return spictrl->rx >> 24;
 }
 
 

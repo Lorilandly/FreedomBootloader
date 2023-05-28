@@ -42,13 +42,23 @@ static inline uint8_t sd_dummy(spi_ctrl* spi)
   return spi_txrx(spi, 0xFF);
 }
 
+//AXI QUAD SPIからの書き込み開始
+void trans_start(spi_ctrl* spi)
+{
+	//transaction inhibitを立てる
+  spi->cr.raw_bits = 0x186; //'b01_1000_0110
+	//CS信号を手動で0にする
+  spi->ssr = 0x00;
+	//transaction inhibitを解除
+  spi->cr.raw_bits = 0x086;
+}
 
 static int sd_cmd(spi_ctrl* spi, uint8_t cmd, uint32_t arg, uint8_t crc)
 {
   unsigned long n;
   uint8_t r;
 
-  spi->cr.transaction_inhibit = 1;
+  trans_start(spi);
   sd_dummy(spi);
   spi_txrx(spi, cmd);
   spi_txrx(spi, arg >> 24);
@@ -71,15 +81,62 @@ static int sd_cmd(spi_ctrl* spi, uint8_t cmd, uint32_t arg, uint8_t crc)
 static inline void sd_cmd_end(spi_ctrl* spi)
 {
   sd_dummy(spi);
-  spi->cr.transaction_inhibit = 0;
+  //spi->cr.transaction_inhibit = 0;
+  spi->cr.raw_bits = 0x186;
 }
 
-static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
+void xspi_init_hw(spi_ctrl* spi)
+{ // reset
+
+	/* Reset the SPI device */
+  spi->srr = 0x0a;
+	/* Enable the transmit empty interrupt, which we use to determine
+	 * progress on the transmission.
+	 */
+
+	// 明示的にIPのresetにかかるクロックを稼ぐ
+  __asm__ __volatile__ ("nop; nop; nop; nop;");
+
+  spi->ipier = 0x04;
+	/* Disable the global IPIF interrupt */
+  spi->dgier = 0;
+	/* Deselect the slave on the SPI bus */
+  spi->ssr = 0xffff;
+}
+
+static void sd_poweron(spi_ctrl* spi)
 {
-  spi->ssr = 0x01; // spi software reset
+  xspi_init_hw(spi);
+  spi_tx(spi, 0xFF);	   // 1
+  spi_tx(spi, 0xFF);	   // 2
+  spi_tx(spi, 0xFF);	   // 3
+  spi_tx(spi, 0xFF);	   // 4
+  spi_tx(spi, 0xFF);	   // 5
+  spi_tx(spi, 0xFF);	   // 6
+  spi_tx(spi, 0xFF);	   // 7
+	spi_tx(spi, 0xFF);	   // 8
+	spi_tx(spi, 0xFF);	   // 9
+	spi_tx(spi, 0xFF);	   // 10
+	spi_tx(spi, 0xFF);	   // 11
+	spi_tx(spi, 0xFF);	   // 12
+	spi_tx(spi, 0xFF);	   // 13
+	spi_tx(spi, 0xFF);	   // 14
+	spi_tx(spi, 0xFF);	   // 15
+	spi_tx(spi, 0xFF);	   // 16
+  trans_start(spi);
+  unsigned int r;
+  for (int i = 0; i < 1000; i++) {
+    r = spi->ipisr;
+    if (r == 0x54000000) {
+      spi->cr.raw_bits = 0x186;
+      break;
+    }
+  }
+  /*
+  spi->ssr = 0x0a; // spi software reset
   // It is necessary to wait 1ms after SD card power on before it is legal to
   // start sending it commands.
-  clkutils_delay_ns(1000000);
+  // clkutils_delay_ns(1000000);
 
   // Initialize SPI controller
   spi->cr.raw_bits = ((spi_ctrl_reg) {
@@ -88,6 +145,7 @@ static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
     .master = 1,
     .spe = 1,
   }).raw_bits;
+  */
   /*
   spi->fmt.raw_bits = ((spi_reg_fmt) {
     .proto = SPI_PROTO_S,
@@ -101,6 +159,7 @@ static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
 
   // cannot change clock
   // spi->sckdiv = spi_min_clk_divisor(input_clk_khz, SD_POWER_ON_FREQ_KHZ);
+  /*
   spi->cr.transaction_inhibit = 1;
 
   for (int i = 10; i > 0; i--) {
@@ -111,6 +170,7 @@ static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
   }
 
   spi->cr.transaction_inhibit = 0;
+  */
 }
 
 
@@ -119,6 +179,8 @@ static void sd_poweron(spi_ctrl* spi, unsigned int input_clk_khz)
  */
 static int sd_cmd0(spi_ctrl* spi)
 {
+  xspi_init_hw(spi);
+  spi_tx(spi, 0xff);
   int rc;
   rc = (sd_cmd(spi, SD_CMD(SD_CMD_GO_IDLE_STATE), 0, 0x95) != SD_RESPONSE_IDLE);
   sd_cmd_end(spi);
@@ -223,18 +285,14 @@ static uint16_t crc16(uint16_t crc, uint8_t data)
 }
 
 
-int sd_init(spi_ctrl* spi, unsigned int input_clk_khz, int skip_sd_init_commands)
+int sd_init(spi_ctrl* spi)
 {
-  // Skip SD initialization commands if already done earlier and only set the
-  // clock divider for data transfer.
-  if (!skip_sd_init_commands) {
-    sd_poweron(spi, input_clk_khz);
-    if (sd_cmd0(spi)) return SD_INIT_ERROR_CMD0;
-    if (sd_cmd8(spi)) return SD_INIT_ERROR_CMD8;
-    if (sd_acmd41(spi)) return SD_INIT_ERROR_ACMD41;
-    if (sd_cmd58(spi)) return SD_INIT_ERROR_CMD58;
-    if (sd_cmd16(spi)) return SD_INIT_ERROR_CMD16;
-  }
+  sd_poweron(spi);
+  if (sd_cmd0(spi)) return SD_INIT_ERROR_CMD0;
+  if (sd_cmd8(spi)) return SD_INIT_ERROR_CMD8;
+  if (sd_acmd41(spi)) return SD_INIT_ERROR_ACMD41;
+  if (sd_cmd58(spi)) return SD_INIT_ERROR_CMD58;
+  if (sd_cmd16(spi)) return SD_INIT_ERROR_CMD16;
   // Increase clock frequency after initialization for higher performance.
   // spi->sckdiv = spi_min_clk_divisor(input_clk_khz, SD_POST_INIT_CLK_KHZ);
   return 0;

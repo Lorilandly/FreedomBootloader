@@ -11,8 +11,6 @@ void uart_putc(void* uartctrl, char c) {
   // little endian? optimize later
   while ((int32_t) _REG32(uartctrl, UART_REG_STAT) & UART_TX_FULL);
   _REG32(uartctrl, UART_REG_TXFIFO) = c;
-  // _REG32(uartctrl, UART_REG_CTRL) |= 1;
-  //uart_put_hex(uartctrl, (int8_t) _REG32(uartctrl, UART_REG_STAT) + '0');
 }
 
 
